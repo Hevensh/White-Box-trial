@@ -36,7 +36,7 @@ class Transformer(layers.Layer):
     def call(self, inputs):
         x = self.LN(inputs)
         
-        qkv0 = self.qkv(x)
+        qkv = self.qkv(x)
         q, k, v = tf.split(qkv, 3, -1)
         
         z = self.mha(q, k, v) + x
@@ -47,7 +47,7 @@ class Transformer(layers.Layer):
     def get_attention_weight(self, inputs):
         x = self.LN(inputs)
         
-        qkv0 = self.qkv(x)
+        qkv = self.qkv(x)
         q, k, v = tf.split(qkv, 3, -1)
 
         z, w = self.mha(
