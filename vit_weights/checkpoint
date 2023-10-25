@@ -1,0 +1,2 @@
+model_checkpoint_path: "vit_32_8"
+all_model_checkpoint_paths: "vit_32_8"
