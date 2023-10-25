@@ -37,9 +37,9 @@ class Transformer(layers.Layer):
         x = self.LN(inputs)
         
         qkv0 = self.qkv(x)
-        q0, k0, v0 = tf.split(qkv0, 3, -1)
+        q, k, v = tf.split(qkv, 3, -1)
         
-        z = self.mha(q0, k0, v0) + x
+        z = self.mha(q, k, v) + x
         
         outputs = self.FFN(z) + z             
         return outputs
@@ -48,16 +48,26 @@ class Transformer(layers.Layer):
         x = self.LN(inputs)
         
         qkv0 = self.qkv(x)
-        q0, k0, v0 = tf.split(qkv0, 3, -1)
-        z = self.mha(q0, k0, v0) + x
+        q, k, v = tf.split(qkv, 3, -1)
 
         z, w = self.mha(
-            q0, k0, v0, 
+            q, k, v, 
             return_attention_scores=True
         )
         z = z + x
         outputs = self.FFN(z) + z 
         return outputs, w
+
+    def get_Kz(self, inputs):
+        x = self.LN(inputs)
+        
+        qkv = self.qkv(x)
+        q, k, v = tf.split(qkv, 3, -1)
+        
+        z = self.mha(q, k, v) + x
+        
+        outputs = self.FFN(z) + z             
+        return outputs, k
 
 
 class model_vit(Model):
@@ -93,6 +103,14 @@ class model_vit(Model):
             w_list.append(w)
         return z_list, w_list
 
+    def get_Kz(self, inputs):
+        z = self.encoder(inputs)
+        Kz_list = []
+        for mha_i in self.mha:
+            z, Kz = mha_i.get_Kz(z)
+            Kz_list.append(Kz)
+        return Kz_list
+
 
 class Creta(layers.Layer):
     def __init__(self, dims, heads, sigma=.1, lambd=.1):
@@ -108,7 +126,6 @@ class Creta(layers.Layer):
         self.sigma = sigma
         self.lambd = lambd
         
-        
     def call(self, inputs):
         x = self.LN(inputs)
         
@@ -117,7 +134,6 @@ class Creta(layers.Layer):
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
         return z_next + z_half
-    
     
     def get_attention_weight(self, inputs):
         x = self.LN(inputs)
@@ -128,6 +144,15 @@ class Creta(layers.Layer):
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
         return z_next + z_half, w
+    
+    def get_Uz(self, inputs):
+        x = self.LN(inputs)
+        
+        z_l = x @ self.U
+        z_half = self.mha(z_l, z_l) + x
+
+        z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
+        return z_next + z_half, z_l
 
 
 class model_crate(Model):
@@ -163,4 +188,10 @@ class model_crate(Model):
             w_list.append(w)
         return z_list, w_list
 
-  
+    def get_Uz(self, inputs):
+        z = self.encoder(inputs)
+        Uz_list = []
+        for mha_i in self.mha:
+            z, Uz = mha_i.get_Uz(z)
+            Uz_list.append(Uz)
+        return Uz_list
