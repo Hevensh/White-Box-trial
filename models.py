@@ -61,7 +61,7 @@ class Transformer(layers.Layer):
 
 
 class model_vit(Model):
-    def __init__(self, dims, heads, num_layers=3):
+    def __init__(self, dims, num_classes, heads, num_layers=3):
         super(model_vit, self).__init__(name='vit')
         leakyReLU = layers.LeakyReLU()
         self.encoder = Sequential([
@@ -131,7 +131,7 @@ class Creta(layers.Layer):
 
 
 class model_crate(Model):
-    def __init__(self, dims, heads, num_layers=3):
+    def __init__(self, dims, num_classes, heads, num_layers=3):
         super(model_crate, self).__init__(name='vit')
         leakyReLU = layers.LeakyReLU()
         self.encoder = Sequential([
