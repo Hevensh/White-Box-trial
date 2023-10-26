@@ -86,7 +86,7 @@ class Transformer(layers.Layer):
         qkv = self.qkv(x)
         q, k, v = tf.split(qkv, 3, -1)
         
-        z = self.mha(q, k, v) + x
+        z = self.LN(self.mha(q, k, v) + x)
         
         outputs = self.FFN(z) + z             
         return outputs
@@ -177,7 +177,7 @@ class Creta(layers.Layer):
         x = self.LN(inputs)
         
         z_l = x @ self.U
-        z_half = self.mha(z_l, z_l) + x
+        z_half = self.LN(self.mha(z_l, z_l) + x)
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
         return z_next + z_half
