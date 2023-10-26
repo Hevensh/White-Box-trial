@@ -1,4 +1,5 @@
 # White-Box-trial
 
-don't fxxkxxg tough my experimential code. 
+don't tough my experimential code. 
+it's just for a plot
 it's wrong perhaps.
