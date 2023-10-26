@@ -18,6 +18,34 @@ class add_cls(layers.Layer):
         return tf.concat([tf.tile(self.cls, (b, 1, 1)), x], 1)
 
 
+class MultiHeadAttention(layers.Layer):
+    def __init__(self, dims, heads):
+        super(MultiHeadAttention, self).__init__()
+        self.dims = dims
+        self.heads = heads
+        assert dims % heads == 0
+        self.sqrt_Dk = dims ** (1/2)
+        
+    def call(self, q, k, v=None, return_attention_scores=False):
+        b, p = tf.shape(q)[0], tf.shape(q)[1]
+        q = tf.transpose(tf.reshape(q, (b, p, self.heads, -1)), (0, 2, 1, 3))
+        k = tf.transpose(tf.reshape(k, (b, p, self.heads, -1)), (0, 2, 1, 3))
+        weights = tf.math.softmax(tf.einsum('bhid, bhjd -> bhij', q, k) / self.sqrt_Dk, axis=-1)
+        
+        if v is None:
+            z = weights @ k
+        else:
+            v = tf.transpose(tf.reshape(v, (b, p, self.heads, -1)), (0, 2, 1, 3))
+            z = weights @ v
+            
+        outputs = tf.reshape(tf.transpose(z, (0, 2, 1, 3)), (b, p, -1))
+        
+        if return_attention_scores:
+            return outputs, weights
+        else:
+            return outputs
+
+
 class Transformer(layers.Layer):
     def __init__(self, dims, heads):
         super(Transformer, self).__init__()
@@ -25,7 +53,7 @@ class Transformer(layers.Layer):
         
         self.LN = layers.LayerNormalization()
         self.qkv = layers.Dense(3 * dims)
-        self.mha = layers.MultiHeadAttention(heads, dims)
+        self.mha = MultiHeadAttention(dims, heads)
         
         leakyReLU = layers.LeakyReLU()
         self.FFN = Sequential([
@@ -119,7 +147,7 @@ class Creta(layers.Layer):
         
         self.LN = layers.LayerNormalization()
         self.U = self.add_weight('U', (dims, dims), initializer='orthogonal')
-        self.mha = layers.MultiHeadAttention(heads, dims)
+        self.mha = MultiHeadAttention(dims, heads)
         
         leakyReLU = layers.LeakyReLU()
         self.D = self.add_weight('D', (dims, dims), initializer='orthogonal')
