@@ -1,7 +1,7 @@
 # White-Box-trial
 
-don't tough my experimential code. \n
+don't tough my experimential code. 
 
-it's just for a plot. \n
+it's just for a plot. 
 
 it's wrong perhaps.
