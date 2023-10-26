@@ -70,7 +70,8 @@ class Transformer(layers.Layer):
         super(Transformer, self).__init__()
         self.dims = dims
         
-        self.LN = layers.LayerNormalization()
+        self.LN1 = layers.LayerNormalization()
+        self.LN2 = layers.LayerNormalization()
         self.qkv = layers.Dense(3 * dims)
         self.mha = MultiHeadAttention(dims, heads)
         
@@ -81,18 +82,18 @@ class Transformer(layers.Layer):
         ])
         
     def call(self, inputs):
-        x = self.LN(inputs)
+        x = self.LN1(inputs)
         
         qkv = self.qkv(x)
         q, k, v = tf.split(qkv, 3, -1)
         
-        z = self.LN(self.mha(q, k, v) + x)
+        z = self.LN2(self.mha(q, k, v) + x)
         
         outputs = self.FFN(z) + z             
         return outputs
         
     def get_attention_weight(self, inputs):
-        x = self.LN(inputs)
+        x = self.LN1(inputs)
         
         qkv = self.qkv(x)
         q, k, v = tf.split(qkv, 3, -1)
@@ -101,17 +102,17 @@ class Transformer(layers.Layer):
             q, k, v, 
             return_attention_scores=True
         )
-        z = z + x
+        z = self.LN2(z + x)
         outputs = self.FFN(z) + z 
         return outputs, w
 
     def get_Kz(self, inputs):
-        x = self.LN(inputs)
+        x = self.LN1(inputs)
         
         qkv = self.qkv(x)
         q, k, v = tf.split(qkv, 3, -1)
         
-        z = self.mha(q, k, v) + x
+        z = self.LN2(self.mha(q, k, v) + x)
         
         outputs = self.FFN(z) + z             
         return outputs, k
@@ -174,29 +175,29 @@ class Creta(layers.Layer):
         self.lambd = lambd
         
     def call(self, inputs):
-        x = self.LN(inputs)
+        x = self.LN1(inputs)
         
         z_l = x @ self.U
-        z_half = self.LN(self.mha(z_l, z_l) + x)
+        z_half = self.LN2(self.mha(z_l, z_l) + x)
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
         return z_next + z_half
     
     def get_attention_weight(self, inputs):
-        x = self.LN(inputs)
+        x = self.LN1(inputs)
         
         z_l = x @ self.U
         z_half, w = self.mha(z_l, z_l, return_attention_scores=True) 
-        z_half = z_half + x
+        z_half = self.LN2(z_half + x)
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
         return z_next + z_half, w
     
     def get_Uz(self, inputs):
-        x = self.LN(inputs)
+        x = self.LN1(inputs)
         
         z_l = x @ self.U
-        z_half = self.mha(z_l, z_l) + x
+        z_half = self.LN2(self.mha(z_l, z_l) + x)
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
         return z_next + z_half, z_l
