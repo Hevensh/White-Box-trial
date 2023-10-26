@@ -18,28 +18,47 @@ class add_cls(layers.Layer):
         return tf.concat([tf.tile(self.cls, (b, 1, 1)), x], 1)
 
 
+def scaled_dot_product_attention(q, k, v):
+    matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
+
+    dk = tf.cast(tf.shape(k)[-1], tf.float32)
+    scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
+
+    weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
+
+    output = tf.matmul(weights, v)  # (..., seq_len_q, depth_v)
+
+    return output, weights
+
+
 class MultiHeadAttention(layers.Layer):
     def __init__(self, dims, heads):
         super(MultiHeadAttention, self).__init__()
-        self.dims = dims
         self.heads = heads
-        assert dims % heads == 0
-        self.sqrt_Dk = dims ** (1/2)
-        
+        self.dims = dims
+
+        assert dims % self.heads == 0
+
+        self.depth = dims // self.heads
+
+    def split_heads(self, x, b):
+        x = tf.reshape(x, (b, -1, self.heads, self.depth))
+        return tf.transpose(x, perm=[0, 2, 1, 3])
+
     def call(self, q, k, v=None, return_attention_scores=False):
-        b, p = tf.shape(q)[0], tf.shape(q)[1]
-        q = tf.transpose(tf.reshape(q, (b, p, self.heads, -1)), (0, 2, 1, 3))
-        k = tf.transpose(tf.reshape(k, (b, p, self.heads, -1)), (0, 2, 1, 3))
-        weights = tf.math.softmax(tf.einsum('bhid, bhjd -> bhij', q, k) / self.sqrt_Dk, axis=-1)
+        b = tf.shape(q)[0]
+        q = self.split_heads(q, b)  # (b, heads, len_q, depth)
+        k = self.split_heads(k, b)  # (b, heads, len_k, depth)
         
         if v is None:
-            z = weights @ k
+            v = k
         else:
-            v = tf.transpose(tf.reshape(v, (b, p, self.heads, -1)), (0, 2, 1, 3))
-            z = weights @ v
-            
-        outputs = tf.reshape(tf.transpose(z, (0, 2, 1, 3)), (b, p, -1))
-        
+            v = self.split_heads(v, b)  # (b, heads, len_v, depth)
+
+        scaled_attention, weights = scaled_dot_product_attention(q, k, v)
+        scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])  # (b, len_q, heads, depth)
+        outputs = tf.reshape(scaled_attention, (b, -1, self.dims))  # (b, len_q, dims)
+
         if return_attention_scores:
             return outputs, weights
         else:
