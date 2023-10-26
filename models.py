@@ -165,7 +165,8 @@ class Creta(layers.Layer):
         super(Creta, self).__init__()
         self.dims = dims
         
-        self.LN = layers.LayerNormalization()
+        self.LN1 = layers.LayerNormalization()
+        self.LN2 = layers.LayerNormalization()
         self.U = self.add_weight('U', (dims, dims), initializer='orthogonal')
         self.mha = MultiHeadAttention(dims, heads)
         
