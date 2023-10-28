@@ -18,19 +18,6 @@ class add_cls(layers.Layer):
         return tf.concat([tf.tile(self.cls, (b, 1, 1)), x], 1)
 
 
-def scaled_dot_product_attention(q, k, v):
-    matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
-
-    dk = tf.cast(tf.shape(k)[-1], tf.float32)
-    scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
-
-    weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
-
-    output = tf.matmul(weights, v)  # (..., seq_len_q, depth_v)
-
-    return output, weights
-
-
 class MultiHeadAttention(layers.Layer):
     def __init__(self, dims, heads):
         super(MultiHeadAttention, self).__init__()
@@ -40,6 +27,7 @@ class MultiHeadAttention(layers.Layer):
         assert dims % self.heads == 0
 
         self.depth = dims // self.heads
+        self.atte = layers.Attention()
 
     def split_heads(self, x, b):
         x = tf.reshape(x, (b, -1, self.heads, self.depth))
@@ -51,11 +39,10 @@ class MultiHeadAttention(layers.Layer):
         k = self.split_heads(k, b)  # (b, heads, len_k, depth)
         
         if v is None:
-            v = k
+            scaled_attention, weights = self.atte([q, k], return_attention_scores=True)
         else:
-            v = self.split_heads(v, b)  # (b, heads, len_v, depth)
+            scaled_attention, weights = self.atte([q, k, v], return_attention_scores=True)
 
-        scaled_attention, weights = scaled_dot_product_attention(q, k, v)
         scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])  # (b, len_q, heads, depth)
         outputs = tf.reshape(scaled_attention, (b, -1, self.dims))  # (b, len_q, dims)
 
