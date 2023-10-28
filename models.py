@@ -41,6 +41,7 @@ class MultiHeadAttention(layers.Layer):
         if v is None:
             scaled_attention, weights = self.atte([q, k], return_attention_scores=True)
         else:
+            v = self.split_heads(v, b)
             scaled_attention, weights = self.atte([q, k, v], return_attention_scores=True)
 
         scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])  # (b, len_q, heads, depth)
