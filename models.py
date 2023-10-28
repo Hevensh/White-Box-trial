@@ -157,7 +157,7 @@ class Creta(layers.Layer):
         self.U = self.add_weight('U', (dims, dims), initializer='orthogonal')
         self.mha = MultiHeadAttention(dims, heads)
         
-        leakyReLU = layers.LeakyReLU()
+        self.leakyReLU = layers.LeakyReLU()
         self.D = self.add_weight('D', (dims, dims), initializer='orthogonal')
         self.sigma = sigma
         self.lambd = lambd
@@ -169,7 +169,7 @@ class Creta(layers.Layer):
         z_half = self.LN2(self.mha(z_l, z_l) + x)
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
-        return z_next + z_half
+        return self.leakyReLU(z_next) + z_half
     
     def get_attention_weight(self, inputs):
         x = self.LN1(inputs)
@@ -179,7 +179,7 @@ class Creta(layers.Layer):
         z_half = self.LN2(z_half + x)
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
-        return z_next + z_half, w
+        return self.leakyReLU(z_next) + z_half, w
     
     def get_Uz(self, inputs):
         x = self.LN1(inputs)
@@ -188,7 +188,7 @@ class Creta(layers.Layer):
         z_half = self.LN2(self.mha(z_l, z_l) + x)
 
         z_next = self.sigma * ((z_half @ self.D - z_half) @ tf.transpose(self.D, (1, 0)) - self.lambd)
-        return z_next + z_half, z_l
+        return self.leakyReLU(z_next) + z_half, z_l
 
 
 class model_crate(Model):
